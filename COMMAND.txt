@@ -1,0 +1,39 @@
+MongoDB must be running locally before using auth endpoints.
+
+1. Start MongoDB locally.
+   Example if MongoDB is installed as a Windows service:
+   `net start MongoDB`
+
+2. Run the backend:
+   `cd .\NetManage.Api`
+   `dotnet restore`
+   `dotnet run`
+
+3. Open Swagger:
+   `http://localhost:5000/swagger`
+
+4. Test health:
+   `GET /api/health`
+
+5. Test registration from Swagger:
+   `POST /api/auth/register`
+   Example body:
+   {
+     "fullName": "Pierre Baz",
+     "email": "student@example.com",
+     "password": "Password123!"
+   }
+
+6. Test login from Swagger:
+   `POST /api/auth/login`
+   Example body:
+   {
+     "email": "student@example.com",
+     "password": "Password123!"
+   }
+
+7. Test the protected endpoint:
+   Copy the token from register or login.
+   Click `Authorize` in Swagger.
+   Enter `Bearer <token>`.
+   Call `GET /api/me`.
