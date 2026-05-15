@@ -1,0 +1,19 @@
+# .NET
+bin/
+obj/
+**/bin/
+**/obj/
+*.user
+*.suo
+*.lscache
+
+# Local environment files
+.env
+.env.*
+!env.example
+
+# Editor and OS files
+.vs/
+.vscode/
+Thumbs.db
+Desktop.ini
