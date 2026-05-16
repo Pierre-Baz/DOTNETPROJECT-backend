@@ -37,3 +37,80 @@ MongoDB must be running locally before using auth endpoints.
    Click `Authorize` in Swagger.
    Enter `Bearer <token>`.
    Call `GET /api/me`.
+
+Phase 3 project/workspace test flow:
+
+1. Start MongoDB locally.
+   Example if MongoDB is installed as a Windows service:
+   `net start MongoDB`
+
+2. Run the backend:
+   `cd .\NetManage.Api`
+   `dotnet run`
+
+3. Register user A:
+   `POST /api/auth/register`
+   Example body:
+   {
+     "fullName": "User A",
+     "email": "user.a@example.com",
+     "password": "Password123!"
+   }
+
+4. Register user B:
+   `POST /api/auth/register`
+   Example body:
+   {
+     "fullName": "User B",
+     "email": "user.b@example.com",
+     "password": "Password123!"
+   }
+
+5. Login user A:
+   `POST /api/auth/login`
+   Example body:
+   {
+     "email": "user.a@example.com",
+     "password": "Password123!"
+   }
+   Copy user A's token and authorize Swagger with:
+   `Bearer <user-a-token>`
+
+6. Create a project as user A:
+   `POST /api/projects`
+   Example body:
+   {
+     "name": "Networking Final Project",
+     "description": "Workspace for the course project."
+   }
+   Copy the returned project id.
+
+7. Add user B by email:
+   `POST /api/projects/{projectId}/members`
+   Example body:
+   {
+     "email": "user.b@example.com"
+   }
+
+8. Login user B:
+   `POST /api/auth/login`
+   Example body:
+   {
+     "email": "user.b@example.com",
+     "password": "Password123!"
+   }
+   Re-authorize Swagger with:
+   `Bearer <user-b-token>`
+
+9. Confirm user B can see the project:
+   `GET /api/projects`
+   `GET /api/projects/{projectId}`
+
+10. Confirm user B cannot update or delete the project:
+    `PUT /api/projects/{projectId}` should return 403 Forbidden.
+    `DELETE /api/projects/{projectId}` should return 403 Forbidden.
+
+11. Confirm owner can remove user B:
+    Re-authorize Swagger with user A's token.
+    Call `DELETE /api/projects/{projectId}/members/{userBId}`.
+    The response should no longer include user B in the members list.
