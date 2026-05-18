@@ -6,13 +6,14 @@ using NetManage.Api.Configuration;
 using NetManage.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+builder.Configuration.AddInMemoryCollection(LoadLocalEnvironmentFile(builder.Environment.ContentRootPath));
 
 const string FrontendCorsPolicy = "FrontendCorsPolicy";
 
 var mongoDbSettings = LoadMongoDbSettings(builder.Configuration);
 var jwtSettings = LoadJwtSettings(builder.Configuration);
-var frontendUrl = builder.Configuration["FrontendUrl"]
-    ?? builder.Configuration["FRONTEND_URL"]
+var frontendUrl = builder.Configuration["FRONTEND_URL"]
+    ?? builder.Configuration["FrontendUrl"]
     ?? "http://localhost:3000";
 
 builder.Services.AddSingleton(mongoDbSettings);
@@ -101,6 +102,48 @@ app.MapGet("/api/health", () => Results.Ok(new
     .WithOpenApi();
 
 app.Run();
+
+static Dictionary<string, string?> LoadLocalEnvironmentFile(string contentRootPath)
+{
+    var envPath = Path.Combine(contentRootPath, ".env");
+    var values = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
+
+    if (!File.Exists(envPath))
+    {
+        return values;
+    }
+
+    foreach (var rawLine in File.ReadAllLines(envPath))
+    {
+        var line = rawLine.Trim();
+
+        if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+        {
+            continue;
+        }
+
+        if (line.StartsWith("export ", StringComparison.OrdinalIgnoreCase))
+        {
+            line = line["export ".Length..].TrimStart();
+        }
+
+        var separatorIndex = line.IndexOf('=');
+        if (separatorIndex <= 0)
+        {
+            continue;
+        }
+
+        var key = line[..separatorIndex].Trim();
+        var value = line[(separatorIndex + 1)..].Trim().Trim('"', '\'');
+
+        if (Environment.GetEnvironmentVariable(key) is null)
+        {
+            values[key] = value;
+        }
+    }
+
+    return values;
+}
 
 static MongoDbSettings LoadMongoDbSettings(IConfiguration configuration)
 {

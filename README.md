@@ -26,6 +26,13 @@ ASP.NET Core Web API backend for NetManage.
 - Owner-only project updates, deletion, and member management
 - Member-only project viewing
 
+## Phase 4 Features
+
+- MongoDB-backed project task storage
+- Owner-only task creation, full updates, assignment, and deletion
+- Member task viewing inside projects
+- Member task status updates for the future Kanban board
+
 ## Requirements
 
 - MongoDB must be running locally at `mongodb://localhost:27017`
@@ -37,6 +44,7 @@ The API reads settings from:
 
 - `appsettings.json`
 - `appsettings.Development.json`
+- local `NetManage.Api/.env`
 - environment variables
 
 Supported environment variables:
@@ -66,7 +74,7 @@ dotnet run
 
 ## Project/Workspace API
 
-Projects are the workspace area where tasks will be added in a later phase. The user who creates a project becomes the owner. The owner is also stored as a member. Project members can view the project, while only the owner can update or delete the project and add or remove members.
+Projects are the workspace area where tasks live. The user who creates a project becomes the owner. The owner is also stored as a member. Project members can view the project, while only the owner can update or delete the project and add or remove members.
 
 Project endpoints:
 
@@ -82,7 +90,7 @@ Project endpoints:
 Short local testing flow:
 
 1. Start MongoDB at `mongodb://localhost:27017`.
-2. Run the backend with `dotnet run` from `Backend/NetManage.Api`.
+2. Run the backend with `dotnet run` from `NetManage.Api`.
 3. Register two users from Swagger.
 4. Login as user A and authorize Swagger with `Bearer <token>`.
 5. Create a project with `POST /api/projects`.
@@ -90,6 +98,56 @@ Short local testing flow:
 7. Login as user B and confirm `GET /api/projects` includes the project.
 8. Confirm user B gets `403 Forbidden` when trying to update or delete it.
 9. Login again as user A and remove user B from the project.
+
+## Task API
+
+Tasks belong to projects and are the backend data that a future Kanban board will use. Project members can view tasks and update task status. Project owners can create tasks, update full task details, assign tasks to project members, and delete tasks.
+
+Task statuses:
+
+- `Todo`
+- `Started`
+- `Testing`
+- `Finishing`
+- `Done`
+
+Task priorities:
+
+- `Low`
+- `Medium`
+- `High`
+- `Critical`
+
+Task endpoints:
+
+- `GET /api/projects/{projectId}/tasks` - list project tasks as a project member
+- `POST /api/projects/{projectId}/tasks` - create a task as the project owner
+- `GET /api/projects/{projectId}/tasks/{taskId}` - view one project task as a project member
+- `PUT /api/projects/{projectId}/tasks/{taskId}` - update full task details as the project owner
+- `PATCH /api/projects/{projectId}/tasks/{taskId}/status` - update only task status as a project member
+- `DELETE /api/projects/{projectId}/tasks/{taskId}` - delete a task as the project owner
+
+The `PATCH /api/projects/{projectId}/tasks/{taskId}/status` endpoint is intended for the future Kanban drag-and-drop board.
+
+Task list filters:
+
+- `status`
+- `assignedToUserId`
+- `priority`
+
+Short local task testing flow:
+
+1. Start MongoDB at `mongodb://localhost:27017`.
+2. Run the backend with `dotnet run` from `NetManage.Api`.
+3. Register two users from Swagger.
+4. Login as user A and authorize Swagger with `Bearer <token>`.
+5. Create a project with `POST /api/projects`.
+6. Add user B with `POST /api/projects/{id}/members`.
+7. Create a task assigned to user B with `POST /api/projects/{id}/tasks`.
+8. Confirm user A and user B can list tasks with `GET /api/projects/{id}/tasks`.
+9. Login as user B and update status with `PATCH /api/projects/{id}/tasks/{taskId}/status`.
+10. Confirm user B gets `403 Forbidden` when trying to update full task details.
+11. Login again as user A and update or delete the task.
 
 ## Swagger JWT Usage
 

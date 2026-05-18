@@ -14,11 +14,14 @@ public class MongoDbContext
         _database = client.GetDatabase(settings.DatabaseName);
         Users = _database.GetCollection<User>("users");
         Projects = _database.GetCollection<Project>("projects");
+        Tasks = _database.GetCollection<ProjectTask>("tasks");
     }
 
     public IMongoCollection<User> Users { get; }
 
     public IMongoCollection<Project> Projects { get; }
+
+    public IMongoCollection<ProjectTask> Tasks { get; }
 
     public async Task EnsureIndexesAsync(CancellationToken cancellationToken = default)
     {
@@ -43,5 +46,23 @@ public class MongoDbContext
         };
 
         await Projects.Indexes.CreateManyAsync(projectIndexModels, cancellationToken: cancellationToken);
+
+        var taskIndexModels = new[]
+        {
+            new CreateIndexModel<ProjectTask>(
+                Builders<ProjectTask>.IndexKeys.Ascending(task => task.ProjectId),
+                new CreateIndexOptions { Name = "ix_tasks_projectId" }),
+            new CreateIndexModel<ProjectTask>(
+                Builders<ProjectTask>.IndexKeys.Ascending(task => task.AssignedToUserId),
+                new CreateIndexOptions { Name = "ix_tasks_assignedToUserId" }),
+            new CreateIndexModel<ProjectTask>(
+                Builders<ProjectTask>.IndexKeys.Ascending(task => task.Status),
+                new CreateIndexOptions { Name = "ix_tasks_status" }),
+            new CreateIndexModel<ProjectTask>(
+                Builders<ProjectTask>.IndexKeys.Ascending(task => task.DueDate),
+                new CreateIndexOptions { Name = "ix_tasks_dueDate" })
+        };
+
+        await Tasks.Indexes.CreateManyAsync(taskIndexModels, cancellationToken: cancellationToken);
     }
 }

@@ -114,3 +114,102 @@ Phase 3 project/workspace test flow:
     Re-authorize Swagger with user A's token.
     Call `DELETE /api/projects/{projectId}/members/{userBId}`.
     The response should no longer include user B in the members list.
+
+Phase 4 task management test flow:
+
+1. Start MongoDB locally.
+   Example if MongoDB is installed as a Windows service:
+   `net start MongoDB`
+
+2. Run the backend:
+   `cd .\NetManage.Api`
+   `dotnet run`
+
+3. Register user A:
+   `POST /api/auth/register`
+   Example body:
+   {
+     "fullName": "Task Owner",
+     "email": "task.owner@example.com",
+     "password": "Password123!"
+   }
+
+4. Register user B:
+   `POST /api/auth/register`
+   Example body:
+   {
+     "fullName": "Task Member",
+     "email": "task.member@example.com",
+     "password": "Password123!"
+   }
+
+5. Login user A:
+   `POST /api/auth/login`
+   Example body:
+   {
+     "email": "task.owner@example.com",
+     "password": "Password123!"
+   }
+   Copy user A's token and authorize Swagger with:
+   `Bearer <user-a-token>`
+
+6. Create a project as user A:
+   `POST /api/projects`
+   Example body:
+   {
+     "name": "Task Management Project",
+     "description": "Workspace for Phase 4 testing."
+   }
+   Copy the returned project id.
+
+7. Add user B to the project:
+   `POST /api/projects/{projectId}/members`
+   Example body:
+   {
+     "email": "task.member@example.com"
+   }
+   Copy user B's id from the returned members list.
+
+8. Create a task in the project assigned to user B:
+   `POST /api/projects/{projectId}/tasks`
+   Example body:
+   {
+     "title": "Prepare Kanban API demo",
+     "description": "Verify backend task endpoints.",
+     "assignedToUserId": "<user-b-id>",
+     "priority": "High",
+     "startDate": "2026-05-18T00:00:00Z",
+     "dueDate": "2026-05-25T00:00:00Z"
+   }
+   Copy the returned task id.
+
+9. List project tasks as user A:
+   `GET /api/projects/{projectId}/tasks`
+
+10. Login user B:
+    `POST /api/auth/login`
+    Example body:
+    {
+      "email": "task.member@example.com",
+      "password": "Password123!"
+    }
+    Re-authorize Swagger with:
+    `Bearer <user-b-token>`
+
+11. List project tasks as user B:
+    `GET /api/projects/{projectId}/tasks`
+
+12. Update task status as user B:
+    `PATCH /api/projects/{projectId}/tasks/{taskId}/status`
+    Example body:
+    {
+      "status": "Started"
+    }
+
+13. Confirm user B cannot update full task details:
+    `PUT /api/projects/{projectId}/tasks/{taskId}` should return 403 Forbidden.
+
+14. Confirm owner user A can update and delete the task:
+    Re-authorize Swagger with user A's token.
+    Call `PUT /api/projects/{projectId}/tasks/{taskId}`.
+    Call `DELETE /api/projects/{projectId}/tasks/{taskId}`.
