@@ -12,9 +12,7 @@ const string FrontendCorsPolicy = "FrontendCorsPolicy";
 
 var mongoDbSettings = LoadMongoDbSettings(builder.Configuration);
 var jwtSettings = LoadJwtSettings(builder.Configuration);
-var frontendUrl = builder.Configuration["FRONTEND_URL"]
-    ?? builder.Configuration["FrontendUrl"]
-    ?? "http://localhost:3000";
+var frontendUrls = LoadFrontendUrls(builder.Configuration);
 
 builder.Services.AddSingleton(mongoDbSettings);
 builder.Services.AddSingleton(jwtSettings);
@@ -27,7 +25,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy(FrontendCorsPolicy, policy =>
     {
         policy
-            .WithOrigins(frontendUrl)
+            .WithOrigins(frontendUrls)
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -187,4 +185,23 @@ static JwtSettings LoadJwtSettings(IConfiguration configuration)
     }
 
     return settings;
+}
+
+static string[] LoadFrontendUrls(IConfiguration configuration)
+{
+    var configuredUrls = new[]
+        {
+            configuration["FRONTEND_URL"],
+            configuration["FrontendUrl"],
+            configuration["FRONTEND_URLS"]
+        }
+        .Where(value => !string.IsNullOrWhiteSpace(value))
+        .SelectMany(value => value!.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+
+    return configuredUrls
+        .Append("http://localhost:3000")
+        .Append("https://dotnetproject-one.vercel.app")
+        .Select(url => url.TrimEnd('/'))
+        .Distinct(StringComparer.OrdinalIgnoreCase)
+        .ToArray();
 }
