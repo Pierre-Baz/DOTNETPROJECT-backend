@@ -1,0 +1,15 @@
+.git
+.gitignore
+.env
+.env.*
+bin/
+obj/
+**/bin/
+**/obj/
+.vs/
+.vscode/
+*.user
+*.suo
+*.lscache
+README.md
+COMMAND.txt
