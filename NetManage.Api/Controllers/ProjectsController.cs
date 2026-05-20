@@ -191,6 +191,10 @@ public class ProjectsController : ControllerBase
             existingProject => existingProject.Id == project.Id,
             cancellationToken);
 
+        await _mongoDbContext.Tasks.DeleteManyAsync(
+            task => task.ProjectId == project.Id,
+            cancellationToken);
+
         return NoContent();
     }
 

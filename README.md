@@ -31,7 +31,7 @@ ASP.NET Core Web API backend for NetManage.
 - MongoDB-backed project task storage
 - Owner-only task creation, full updates, assignment, and deletion
 - Member task viewing inside projects
-- Member task status updates for the future Kanban board
+- Member task status updates for the Kanban board
 
 ## Requirements
 
@@ -101,7 +101,7 @@ Short local testing flow:
 
 ## Task API
 
-Tasks belong to projects and are the backend data that a future Kanban board will use. Project members can view tasks and update task status. Project owners can create tasks, update full task details, assign tasks to project members, and delete tasks.
+Tasks belong to projects and power the Kanban board. Project members can view tasks and update task status. Project owners can create tasks, update full task details, assign tasks to project members, and delete tasks.
 
 Task statuses:
 
@@ -127,7 +127,7 @@ Task endpoints:
 - `PATCH /api/projects/{projectId}/tasks/{taskId}/status` - update only task status as a project member
 - `DELETE /api/projects/{projectId}/tasks/{taskId}` - delete a task as the project owner
 
-The `PATCH /api/projects/{projectId}/tasks/{taskId}/status` endpoint is intended for the future Kanban drag-and-drop board.
+The `PATCH /api/projects/{projectId}/tasks/{taskId}/status` endpoint is used by the Kanban drag-and-drop board.
 
 Task list filters:
 
