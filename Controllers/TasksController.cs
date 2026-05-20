@@ -320,6 +320,11 @@ public class TasksController : ControllerBase
             return NotFound(new { message = "Task not found." });
         }
 
+        if (!CanUpdateTaskStatus(project, task, currentUserId))
+        {
+            return Forbid();
+        }
+
         if (!TryNormalizeStatus(request.Status, out var normalizedStatus))
         {
             ModelState.AddModelError(nameof(request.Status), "Status must be one of: Todo, Started, Testing, Finishing, Done.");
@@ -438,6 +443,11 @@ public class TasksController : ControllerBase
     private static bool EnsureProjectOwner(Project project, string userId)
     {
         return project.OwnerId == userId;
+    }
+
+    private static bool CanUpdateTaskStatus(Project project, ProjectTask task, string userId)
+    {
+        return project.OwnerId == userId || task.AssignedToUserId == userId;
     }
 
     private bool ValidateTaskDetails(

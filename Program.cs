@@ -106,46 +106,39 @@ app.Run();
 static Dictionary<string, string?> LoadLocalEnvironmentFiles(string contentRootPath)
 {
     var values = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-    var envPaths = new[]
-    {
-        Path.Combine(contentRootPath, ".env"),
-        Path.Combine(Directory.GetParent(contentRootPath)?.FullName ?? contentRootPath, ".env")
-    };
+    var envPath = Path.Combine(contentRootPath, ".env");
 
-    foreach (var envPath in envPaths.Distinct(StringComparer.OrdinalIgnoreCase))
+    if (!File.Exists(envPath))
     {
-        if (!File.Exists(envPath))
+        return values;
+    }
+
+    foreach (var rawLine in File.ReadAllLines(envPath))
+    {
+        var line = rawLine.Trim();
+
+        if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
         {
             continue;
         }
 
-        foreach (var rawLine in File.ReadAllLines(envPath))
+        if (line.StartsWith("export ", StringComparison.OrdinalIgnoreCase))
         {
-            var line = rawLine.Trim();
+            line = line["export ".Length..].TrimStart();
+        }
 
-            if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
-            {
-                continue;
-            }
+        var separatorIndex = line.IndexOf('=');
+        if (separatorIndex <= 0)
+        {
+            continue;
+        }
 
-            if (line.StartsWith("export ", StringComparison.OrdinalIgnoreCase))
-            {
-                line = line["export ".Length..].TrimStart();
-            }
+        var key = line[..separatorIndex].Trim();
+        var value = line[(separatorIndex + 1)..].Trim().Trim('"', '\'');
 
-            var separatorIndex = line.IndexOf('=');
-            if (separatorIndex <= 0)
-            {
-                continue;
-            }
-
-            var key = line[..separatorIndex].Trim();
-            var value = line[(separatorIndex + 1)..].Trim().Trim('"', '\'');
-
-            if (Environment.GetEnvironmentVariable(key) is null)
-            {
-                values[key] = value;
-            }
+        if (Environment.GetEnvironmentVariable(key) is null)
+        {
+            values[key] = value;
         }
     }
 

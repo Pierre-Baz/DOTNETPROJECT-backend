@@ -44,7 +44,7 @@ The API reads settings from:
 
 - `appsettings.json`
 - `appsettings.Development.json`
-- local `NetManage.Api/.env`
+- local `.env`
 - environment variables
 
 Supported environment variables:
@@ -59,7 +59,7 @@ Supported environment variables:
 ## Run Locally
 
 ```powershell
-cd .\NetManage.Api
+cd .\NETMANAGER-backend
 dotnet restore
 dotnet run
 ```
@@ -90,7 +90,7 @@ Project endpoints:
 Short local testing flow:
 
 1. Start MongoDB at `mongodb://localhost:27017`.
-2. Run the backend with `dotnet run` from `NetManage.Api`.
+2. Run the backend with `dotnet run` from the `NETMANAGER-backend` folder.
 3. Register two users from Swagger.
 4. Login as user A and authorize Swagger with `Bearer <token>`.
 5. Create a project with `POST /api/projects`.
@@ -138,7 +138,7 @@ Task list filters:
 Short local task testing flow:
 
 1. Start MongoDB at `mongodb://localhost:27017`.
-2. Run the backend with `dotnet run` from `NetManage.Api`.
+2. Run the backend with `dotnet run` from the `NETMANAGER-backend` folder.
 3. Register two users from Swagger.
 4. Login as user A and authorize Swagger with `Bearer <token>`.
 5. Create a project with `POST /api/projects`.

@@ -5,7 +5,7 @@ MongoDB must be running locally before using auth endpoints.
    `net start MongoDB`
 
 2. Run the backend:
-   `cd .\NetManage.Api`
+   From the `NETMANAGER-backend` folder:
    `dotnet restore`
    `dotnet run`
 
@@ -45,7 +45,7 @@ Phase 3 project/workspace test flow:
    `net start MongoDB`
 
 2. Run the backend:
-   `cd .\NetManage.Api`
+   From the `NETMANAGER-backend` folder:
    `dotnet run`
 
 3. Register user A:
@@ -122,7 +122,7 @@ Phase 4 task management test flow:
    `net start MongoDB`
 
 2. Run the backend:
-   `cd .\NetManage.Api`
+   From the `NETMANAGER-backend` folder:
    `dotnet run`
 
 3. Register user A:
