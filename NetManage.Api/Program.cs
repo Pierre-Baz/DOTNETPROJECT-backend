@@ -6,7 +6,7 @@ using NetManage.Api.Configuration;
 using NetManage.Api.Services;
 
 var builder = WebApplication.CreateBuilder(args);
-builder.Configuration.AddInMemoryCollection(LoadLocalEnvironmentFile(builder.Environment.ContentRootPath));
+builder.Configuration.AddInMemoryCollection(LoadLocalEnvironmentFiles(builder.Environment.ContentRootPath));
 
 const string FrontendCorsPolicy = "FrontendCorsPolicy";
 
@@ -103,42 +103,49 @@ app.MapGet("/api/health", () => Results.Ok(new
 
 app.Run();
 
-static Dictionary<string, string?> LoadLocalEnvironmentFile(string contentRootPath)
+static Dictionary<string, string?> LoadLocalEnvironmentFiles(string contentRootPath)
 {
-    var envPath = Path.Combine(contentRootPath, ".env");
     var values = new Dictionary<string, string?>(StringComparer.OrdinalIgnoreCase);
-
-    if (!File.Exists(envPath))
+    var envPaths = new[]
     {
-        return values;
-    }
+        Path.Combine(contentRootPath, ".env"),
+        Path.Combine(Directory.GetParent(contentRootPath)?.FullName ?? contentRootPath, ".env")
+    };
 
-    foreach (var rawLine in File.ReadAllLines(envPath))
+    foreach (var envPath in envPaths.Distinct(StringComparer.OrdinalIgnoreCase))
     {
-        var line = rawLine.Trim();
-
-        if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+        if (!File.Exists(envPath))
         {
             continue;
         }
 
-        if (line.StartsWith("export ", StringComparison.OrdinalIgnoreCase))
+        foreach (var rawLine in File.ReadAllLines(envPath))
         {
-            line = line["export ".Length..].TrimStart();
-        }
+            var line = rawLine.Trim();
 
-        var separatorIndex = line.IndexOf('=');
-        if (separatorIndex <= 0)
-        {
-            continue;
-        }
+            if (string.IsNullOrWhiteSpace(line) || line.StartsWith('#'))
+            {
+                continue;
+            }
 
-        var key = line[..separatorIndex].Trim();
-        var value = line[(separatorIndex + 1)..].Trim().Trim('"', '\'');
+            if (line.StartsWith("export ", StringComparison.OrdinalIgnoreCase))
+            {
+                line = line["export ".Length..].TrimStart();
+            }
 
-        if (Environment.GetEnvironmentVariable(key) is null)
-        {
-            values[key] = value;
+            var separatorIndex = line.IndexOf('=');
+            if (separatorIndex <= 0)
+            {
+                continue;
+            }
+
+            var key = line[..separatorIndex].Trim();
+            var value = line[(separatorIndex + 1)..].Trim().Trim('"', '\'');
+
+            if (Environment.GetEnvironmentVariable(key) is null)
+            {
+                values[key] = value;
+            }
         }
     }
 
