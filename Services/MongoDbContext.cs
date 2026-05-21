@@ -15,6 +15,9 @@ public class MongoDbContext
         Users = _database.GetCollection<User>("users");
         Projects = _database.GetCollection<Project>("projects");
         Tasks = _database.GetCollection<ProjectTask>("tasks");
+        WikiPages = _database.GetCollection<WikiPage>("wikiPages");
+        Sprints = _database.GetCollection<ProjectSprint>("sprints");
+        Epics = _database.GetCollection<ProjectEpic>("epics");
     }
 
     public IMongoCollection<User> Users { get; }
@@ -22,6 +25,12 @@ public class MongoDbContext
     public IMongoCollection<Project> Projects { get; }
 
     public IMongoCollection<ProjectTask> Tasks { get; }
+
+    public IMongoCollection<WikiPage> WikiPages { get; }
+
+    public IMongoCollection<ProjectSprint> Sprints { get; }
+
+    public IMongoCollection<ProjectEpic> Epics { get; }
 
     public async Task EnsureIndexesAsync(CancellationToken cancellationToken = default)
     {
@@ -56,6 +65,9 @@ public class MongoDbContext
                 Builders<ProjectTask>.IndexKeys.Ascending(task => task.AssignedToUserId),
                 new CreateIndexOptions { Name = "ix_tasks_assignedToUserId" }),
             new CreateIndexModel<ProjectTask>(
+                Builders<ProjectTask>.IndexKeys.Ascending(task => task.EpicId),
+                new CreateIndexOptions { Name = "ix_tasks_epicId" }),
+            new CreateIndexModel<ProjectTask>(
                 Builders<ProjectTask>.IndexKeys.Ascending(task => task.Status),
                 new CreateIndexOptions { Name = "ix_tasks_status" }),
             new CreateIndexModel<ProjectTask>(
@@ -64,5 +76,43 @@ public class MongoDbContext
         };
 
         await Tasks.Indexes.CreateManyAsync(taskIndexModels, cancellationToken: cancellationToken);
+
+        var wikiIndexModels = new[]
+        {
+            new CreateIndexModel<WikiPage>(
+                Builders<WikiPage>.IndexKeys.Ascending(page => page.ProjectId),
+                new CreateIndexOptions { Name = "ix_wikiPages_projectId" }),
+            new CreateIndexModel<WikiPage>(
+                Builders<WikiPage>.IndexKeys.Ascending(page => page.CreatedByUserId),
+                new CreateIndexOptions { Name = "ix_wikiPages_createdByUserId" })
+        };
+
+        await WikiPages.Indexes.CreateManyAsync(wikiIndexModels, cancellationToken: cancellationToken);
+
+        var sprintIndexModels = new[]
+        {
+            new CreateIndexModel<ProjectSprint>(
+                Builders<ProjectSprint>.IndexKeys.Ascending(sprint => sprint.ProjectId),
+                new CreateIndexOptions { Name = "ix_sprints_projectId" }),
+            new CreateIndexModel<ProjectSprint>(
+                Builders<ProjectSprint>.IndexKeys
+                    .Ascending(sprint => sprint.ProjectId)
+                    .Ascending(sprint => sprint.Status),
+                new CreateIndexOptions { Name = "ix_sprints_projectId_status" })
+        };
+
+        await Sprints.Indexes.CreateManyAsync(sprintIndexModels, cancellationToken: cancellationToken);
+
+        var epicIndexModels = new[]
+        {
+            new CreateIndexModel<ProjectEpic>(
+                Builders<ProjectEpic>.IndexKeys.Ascending(epic => epic.ProjectId),
+                new CreateIndexOptions { Name = "ix_epics_projectId" }),
+            new CreateIndexModel<ProjectEpic>(
+                Builders<ProjectEpic>.IndexKeys.Ascending(epic => epic.SprintId),
+                new CreateIndexOptions { Name = "ix_epics_sprintId" })
+        };
+
+        await Epics.Indexes.CreateManyAsync(epicIndexModels, cancellationToken: cancellationToken);
     }
 }

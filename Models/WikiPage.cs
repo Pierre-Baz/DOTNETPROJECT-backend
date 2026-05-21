@@ -3,7 +3,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace NetManage.Api.Models;
 
-public class ProjectTask
+public class WikiPage
 {
     [BsonId]
     [BsonRepresentation(BsonType.ObjectId)]
@@ -15,34 +15,15 @@ public class ProjectTask
     [BsonElement("title")]
     public string Title { get; set; } = string.Empty;
 
-    [BsonElement("description")]
-    [BsonIgnoreIfNull]
-    public string? Description { get; set; }
-
-    [BsonElement("assignedToUserId")]
-    [BsonIgnoreIfNull]
-    public string? AssignedToUserId { get; set; }
-
-    [BsonElement("epicId")]
-    [BsonIgnoreIfNull]
-    public string? EpicId { get; set; }
+    [BsonElement("content")]
+    public string Content { get; set; } = string.Empty;
 
     [BsonElement("createdByUserId")]
     public string CreatedByUserId { get; set; } = string.Empty;
 
-    [BsonElement("status")]
-    public string Status { get; set; } = string.Empty;
-
-    [BsonElement("priority")]
-    public string Priority { get; set; } = string.Empty;
-
-    [BsonElement("startDate")]
+    [BsonElement("updatedByUserId")]
     [BsonIgnoreIfNull]
-    public DateTime? StartDate { get; set; }
-
-    [BsonElement("dueDate")]
-    [BsonIgnoreIfNull]
-    public DateTime? DueDate { get; set; }
+    public string? UpdatedByUserId { get; set; }
 
     [BsonElement("createdAt")]
     public DateTime CreatedAt { get; set; }

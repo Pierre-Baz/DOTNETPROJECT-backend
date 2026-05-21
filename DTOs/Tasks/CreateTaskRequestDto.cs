@@ -14,6 +14,8 @@ public class CreateTaskRequestDto
 
     public string? AssignedToUserId { get; set; }
 
+    public string? EpicId { get; set; }
+
     [Required]
     public string Priority { get; set; } = string.Empty;
 

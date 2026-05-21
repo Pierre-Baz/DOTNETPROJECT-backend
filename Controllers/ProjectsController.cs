@@ -195,6 +195,18 @@ public class ProjectsController : ControllerBase
             task => task.ProjectId == project.Id,
             cancellationToken);
 
+        await _mongoDbContext.WikiPages.DeleteManyAsync(
+            page => page.ProjectId == project.Id,
+            cancellationToken);
+
+        await _mongoDbContext.Epics.DeleteManyAsync(
+            epic => epic.ProjectId == project.Id,
+            cancellationToken);
+
+        await _mongoDbContext.Sprints.DeleteManyAsync(
+            sprint => sprint.ProjectId == project.Id,
+            cancellationToken);
+
         return NoContent();
     }
 

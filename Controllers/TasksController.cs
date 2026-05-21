@@ -52,6 +52,8 @@ public class TasksController : ControllerBase
         [FromQuery] string? status,
         [FromQuery] string? assignedToUserId,
         [FromQuery] string? priority,
+        [FromQuery] string? epicId,
+        [FromQuery] string? sprintId,
         CancellationToken cancellationToken)
     {
         var currentUserId = GetCurrentUserId();
@@ -109,6 +111,58 @@ public class TasksController : ControllerBase
             filter &= Builders<ProjectTask>.Filter.Eq(task => task.AssignedToUserId, normalizedAssignedToUserId);
         }
 
+        var normalizedEpicId = NormalizeOptionalText(epicId);
+        if (normalizedEpicId is not null)
+        {
+            if (!ObjectId.TryParse(normalizedEpicId, out _))
+            {
+                ModelState.AddModelError(nameof(epicId), "EpicId must be a valid epic id.");
+                return ValidationProblem(ModelState);
+            }
+
+            var epicExists = await _mongoDbContext.Epics
+                .Find(epic => epic.Id == normalizedEpicId && epic.ProjectId == project.Id)
+                .AnyAsync(cancellationToken);
+
+            if (!epicExists)
+            {
+                return NotFound(new { message = "Epic not found." });
+            }
+
+            filter &= Builders<ProjectTask>.Filter.Eq(task => task.EpicId, normalizedEpicId);
+        }
+
+        var normalizedSprintId = NormalizeOptionalText(sprintId);
+        if (normalizedSprintId is not null)
+        {
+            if (!ObjectId.TryParse(normalizedSprintId, out _))
+            {
+                ModelState.AddModelError(nameof(sprintId), "SprintId must be a valid sprint id.");
+                return ValidationProblem(ModelState);
+            }
+
+            var sprintExists = await _mongoDbContext.Sprints
+                .Find(sprint => sprint.Id == normalizedSprintId && sprint.ProjectId == project.Id)
+                .AnyAsync(cancellationToken);
+
+            if (!sprintExists)
+            {
+                return NotFound(new { message = "Sprint not found." });
+            }
+
+            var sprintEpicIds = await _mongoDbContext.Epics
+                .Find(epic => epic.ProjectId == project.Id && epic.SprintId == normalizedSprintId)
+                .Project(epic => epic.Id)
+                .ToListAsync(cancellationToken);
+
+            if (sprintEpicIds.Count == 0)
+            {
+                return Ok(new List<TaskResponseDto>());
+            }
+
+            filter &= Builders<ProjectTask>.Filter.In(task => task.EpicId, sprintEpicIds);
+        }
+
         var tasks = await _mongoDbContext.Tasks
             .Find(filter)
             .SortByDescending(task => task.CreatedAt)
@@ -158,12 +212,19 @@ public class TasksController : ControllerBase
             return assignmentError;
         }
 
+        var epicValidation = await NormalizeAndValidateEpicId(project.Id, request.EpicId, cancellationToken);
+        if (epicValidation.Error is not null)
+        {
+            return epicValidation.Error;
+        }
+
         var task = new ProjectTask
         {
             ProjectId = project.Id,
             Title = request.Title.Trim(),
             Description = NormalizeOptionalText(request.Description),
             AssignedToUserId = assignedToUserId,
+            EpicId = epicValidation.EpicId,
             CreatedByUserId = currentUserId,
             Status = StatusTodo,
             Priority = normalizedPriority,
@@ -266,9 +327,16 @@ public class TasksController : ControllerBase
             return assignmentError;
         }
 
+        var epicValidation = await NormalizeAndValidateEpicId(project.Id, request.EpicId, cancellationToken);
+        if (epicValidation.Error is not null)
+        {
+            return epicValidation.Error;
+        }
+
         task.Title = request.Title.Trim();
         task.Description = NormalizeOptionalText(request.Description);
         task.AssignedToUserId = assignedToUserId;
+        task.EpicId = epicValidation.EpicId;
         task.Priority = normalizedPriority;
         task.StartDate = request.StartDate;
         task.DueDate = request.DueDate;
@@ -510,12 +578,46 @@ public class TasksController : ControllerBase
         return null;
     }
 
+    private async Task<(string? EpicId, ActionResult? Error)> NormalizeAndValidateEpicId(
+        string projectId,
+        string? epicId,
+        CancellationToken cancellationToken)
+    {
+        var normalizedEpicId = NormalizeOptionalText(epicId);
+        if (normalizedEpicId is null)
+        {
+            return (null, null);
+        }
+
+        if (!ObjectId.TryParse(normalizedEpicId, out _))
+        {
+            ModelState.AddModelError(nameof(epicId), "EpicId must be a valid epic id.");
+            return (null, ValidationProblem(ModelState));
+        }
+
+        var epicExists = await _mongoDbContext.Epics
+            .Find(epic => epic.Id == normalizedEpicId && epic.ProjectId == projectId)
+            .AnyAsync(cancellationToken);
+
+        if (!epicExists)
+        {
+            return (null, NotFound(new { message = "Epic not found." }));
+        }
+
+        return (normalizedEpicId, null);
+    }
+
     private async Task<List<TaskResponseDto>> MapTasksToResponses(
         List<ProjectTask> tasks,
         CancellationToken cancellationToken)
     {
         var usersById = await LoadUsersForTasks(tasks, cancellationToken);
-        return tasks.Select(task => MapTaskToResponse(task, usersById)).ToList();
+        var epicsById = await LoadEpicsForTasks(tasks, cancellationToken);
+        var sprintsById = await LoadSprintsForEpics(epicsById.Values.ToList(), cancellationToken);
+
+        return tasks
+            .Select(task => MapTaskToResponse(task, usersById, epicsById, sprintsById))
+            .ToList();
     }
 
     private async Task<TaskResponseDto> MapTaskToResponse(
@@ -523,14 +625,31 @@ public class TasksController : ControllerBase
         CancellationToken cancellationToken)
     {
         var usersById = await LoadUsersForTasks(new List<ProjectTask> { task }, cancellationToken);
-        return MapTaskToResponse(task, usersById);
+        var epicsById = await LoadEpicsForTasks(new List<ProjectTask> { task }, cancellationToken);
+        var sprintsById = await LoadSprintsForEpics(epicsById.Values.ToList(), cancellationToken);
+
+        return MapTaskToResponse(task, usersById, epicsById, sprintsById);
     }
 
     private static TaskResponseDto MapTaskToResponse(
         ProjectTask task,
-        IReadOnlyDictionary<string, User> usersById)
+        IReadOnlyDictionary<string, User> usersById,
+        IReadOnlyDictionary<string, ProjectEpic> epicsById,
+        IReadOnlyDictionary<string, ProjectSprint> sprintsById)
     {
         usersById.TryGetValue(task.CreatedByUserId, out var createdByUser);
+        ProjectEpic? epic = null;
+        ProjectSprint? sprint = null;
+
+        if (!string.IsNullOrWhiteSpace(task.EpicId))
+        {
+            epicsById.TryGetValue(task.EpicId, out epic);
+        }
+
+        if (!string.IsNullOrWhiteSpace(epic?.SprintId))
+        {
+            sprintsById.TryGetValue(epic.SprintId, out sprint);
+        }
 
         return new TaskResponseDto
         {
@@ -540,6 +659,10 @@ public class TasksController : ControllerBase
             Description = task.Description,
             AssignedToUser = MapOptionalUser(task.AssignedToUserId, usersById),
             CreatedByUser = MapRequiredUser(task.CreatedByUserId, createdByUser),
+            EpicId = task.EpicId,
+            EpicName = epic?.Name,
+            SprintId = epic?.SprintId,
+            SprintName = sprint?.Name,
             Status = task.Status,
             Priority = task.Priority,
             StartDate = task.StartDate,
@@ -569,6 +692,50 @@ public class TasksController : ControllerBase
             .ToListAsync(cancellationToken);
 
         return users.ToDictionary(user => user.Id);
+    }
+
+    private async Task<IReadOnlyDictionary<string, ProjectEpic>> LoadEpicsForTasks(
+        List<ProjectTask> tasks,
+        CancellationToken cancellationToken)
+    {
+        var epicIds = tasks
+            .Select(task => task.EpicId)
+            .Where(epicId => !string.IsNullOrWhiteSpace(epicId))
+            .Distinct()
+            .ToList();
+
+        if (epicIds.Count == 0)
+        {
+            return new Dictionary<string, ProjectEpic>();
+        }
+
+        var epics = await _mongoDbContext.Epics
+            .Find(epic => epicIds.Contains(epic.Id))
+            .ToListAsync(cancellationToken);
+
+        return epics.ToDictionary(epic => epic.Id);
+    }
+
+    private async Task<IReadOnlyDictionary<string, ProjectSprint>> LoadSprintsForEpics(
+        List<ProjectEpic> epics,
+        CancellationToken cancellationToken)
+    {
+        var sprintIds = epics
+            .Select(epic => epic.SprintId)
+            .Where(sprintId => !string.IsNullOrWhiteSpace(sprintId))
+            .Distinct()
+            .ToList();
+
+        if (sprintIds.Count == 0)
+        {
+            return new Dictionary<string, ProjectSprint>();
+        }
+
+        var sprints = await _mongoDbContext.Sprints
+            .Find(sprint => sprintIds.Contains(sprint.Id))
+            .ToListAsync(cancellationToken);
+
+        return sprints.ToDictionary(sprint => sprint.Id);
     }
 
     private static TaskAssigneeDto? MapOptionalUser(
