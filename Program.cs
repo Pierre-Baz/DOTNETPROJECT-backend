@@ -25,7 +25,7 @@ builder.Services.AddCors(options =>
     options.AddPolicy(FrontendCorsPolicy, policy =>
     {
         policy
-            .WithOrigins(frontendUrls)
+            .SetIsOriginAllowed(origin => IsAllowedFrontendOrigin(origin, frontendUrls))
             .AllowAnyHeader()
             .AllowAnyMethod();
     });
@@ -204,4 +204,21 @@ static string[] LoadFrontendUrls(IConfiguration configuration)
         .Select(url => url.TrimEnd('/'))
         .Distinct(StringComparer.OrdinalIgnoreCase)
         .ToArray();
+}
+
+static bool IsAllowedFrontendOrigin(string origin, IReadOnlyCollection<string> allowedOrigins)
+{
+    if (allowedOrigins.Contains(origin.TrimEnd('/'), StringComparer.OrdinalIgnoreCase))
+    {
+        return true;
+    }
+
+    if (!Uri.TryCreate(origin, UriKind.Absolute, out var uri))
+    {
+        return false;
+    }
+
+    return uri.Scheme == Uri.UriSchemeHttps &&
+        (uri.Host.Equals("vercel.app", StringComparison.OrdinalIgnoreCase) ||
+            uri.Host.EndsWith(".vercel.app", StringComparison.OrdinalIgnoreCase));
 }
