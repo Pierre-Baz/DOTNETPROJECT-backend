@@ -15,6 +15,7 @@ public class MongoDbContext
         Users = _database.GetCollection<User>("users");
         Projects = _database.GetCollection<Project>("projects");
         Tasks = _database.GetCollection<ProjectTask>("tasks");
+        TaskComments = _database.GetCollection<TaskComment>("taskComments");
     }
 
     public IMongoCollection<User> Users { get; }
@@ -22,6 +23,8 @@ public class MongoDbContext
     public IMongoCollection<Project> Projects { get; }
 
     public IMongoCollection<ProjectTask> Tasks { get; }
+
+    public IMongoCollection<TaskComment> TaskComments { get; }
 
     public async Task EnsureIndexesAsync(CancellationToken cancellationToken = default)
     {
@@ -64,5 +67,20 @@ public class MongoDbContext
         };
 
         await Tasks.Indexes.CreateManyAsync(taskIndexModels, cancellationToken: cancellationToken);
+
+        var taskCommentIndexModels = new[]
+        {
+            new CreateIndexModel<TaskComment>(
+                Builders<TaskComment>.IndexKeys
+                    .Ascending(comment => comment.ProjectId)
+                    .Ascending(comment => comment.TaskId)
+                    .Ascending(comment => comment.CreatedAt),
+                new CreateIndexOptions { Name = "ix_taskComments_projectId_taskId_createdAt" }),
+            new CreateIndexModel<TaskComment>(
+                Builders<TaskComment>.IndexKeys.Ascending(comment => comment.CreatedByUserId),
+                new CreateIndexOptions { Name = "ix_taskComments_createdByUserId" })
+        };
+
+        await TaskComments.Indexes.CreateManyAsync(taskCommentIndexModels, cancellationToken: cancellationToken);
     }
 }
