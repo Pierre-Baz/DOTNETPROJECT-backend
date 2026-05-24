@@ -454,6 +454,173 @@ public class TasksController : ControllerBase
             existingTask => existingTask.Id == task.Id && existingTask.ProjectId == project.Id,
             cancellationToken);
 
+        await _mongoDbContext.TaskComments.DeleteManyAsync(
+            comment => comment.ProjectId == project.Id && comment.TaskId == task.Id,
+            cancellationToken);
+
+        return NoContent();
+    }
+
+    [HttpGet("{taskId}/comments")]
+    [ProducesResponseType<List<TaskCommentResponseDto>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<List<TaskCommentResponseDto>>> GetTaskComments(
+        string projectId,
+        string taskId,
+        CancellationToken cancellationToken)
+    {
+        var currentUserId = GetCurrentUserId();
+
+        if (string.IsNullOrWhiteSpace(currentUserId))
+        {
+            return Unauthorized(new { message = "Authentication token is invalid." });
+        }
+
+        var project = await FindProjectById(projectId, cancellationToken);
+
+        if (project is null)
+        {
+            return NotFound(new { message = "Project not found." });
+        }
+
+        if (!EnsureProjectMember(project, currentUserId))
+        {
+            return Forbid();
+        }
+
+        var task = await FindTaskById(project.Id, taskId, cancellationToken);
+
+        if (task is null)
+        {
+            return NotFound(new { message = "Task not found." });
+        }
+
+        var comments = await _mongoDbContext.TaskComments
+            .Find(comment => comment.ProjectId == project.Id && comment.TaskId == task.Id)
+            .SortBy(comment => comment.CreatedAt)
+            .ToListAsync(cancellationToken);
+
+        return Ok(await MapCommentsToResponses(comments, cancellationToken));
+    }
+
+    [HttpPost("{taskId}/comments")]
+    [ProducesResponseType<TaskCommentResponseDto>(StatusCodes.Status201Created)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<TaskCommentResponseDto>> CreateTaskComment(
+        string projectId,
+        string taskId,
+        CreateTaskCommentRequestDto request,
+        CancellationToken cancellationToken)
+    {
+        var currentUserId = GetCurrentUserId();
+
+        if (string.IsNullOrWhiteSpace(currentUserId))
+        {
+            return Unauthorized(new { message = "Authentication token is invalid." });
+        }
+
+        var project = await FindProjectById(projectId, cancellationToken);
+
+        if (project is null)
+        {
+            return NotFound(new { message = "Project not found." });
+        }
+
+        if (!EnsureProjectMember(project, currentUserId))
+        {
+            return Forbid();
+        }
+
+        var task = await FindTaskById(project.Id, taskId, cancellationToken);
+
+        if (task is null)
+        {
+            return NotFound(new { message = "Task not found." });
+        }
+
+        var body = NormalizeOptionalText(request.Body);
+        if (body is null)
+        {
+            ModelState.AddModelError(nameof(request.Body), "Comment body is required.");
+            return ValidationProblem(ModelState);
+        }
+
+        var comment = new TaskComment
+        {
+            ProjectId = project.Id,
+            TaskId = task.Id,
+            CreatedByUserId = currentUserId,
+            Body = body,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _mongoDbContext.TaskComments.InsertOneAsync(comment, cancellationToken: cancellationToken);
+
+        var response = await MapCommentToResponse(comment, cancellationToken);
+        return CreatedAtAction(
+            nameof(GetTaskComments),
+            new { projectId = project.Id, taskId = task.Id },
+            response);
+    }
+
+    [HttpDelete("{taskId}/comments/{commentId}")]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status403Forbidden)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> DeleteTaskComment(
+        string projectId,
+        string taskId,
+        string commentId,
+        CancellationToken cancellationToken)
+    {
+        var currentUserId = GetCurrentUserId();
+
+        if (string.IsNullOrWhiteSpace(currentUserId))
+        {
+            return Unauthorized(new { message = "Authentication token is invalid." });
+        }
+
+        var project = await FindProjectById(projectId, cancellationToken);
+
+        if (project is null)
+        {
+            return NotFound(new { message = "Project not found." });
+        }
+
+        if (!EnsureProjectMember(project, currentUserId))
+        {
+            return Forbid();
+        }
+
+        var task = await FindTaskById(project.Id, taskId, cancellationToken);
+
+        if (task is null)
+        {
+            return NotFound(new { message = "Task not found." });
+        }
+
+        var comment = await FindCommentById(project.Id, task.Id, commentId, cancellationToken);
+
+        if (comment is null)
+        {
+            return NotFound(new { message = "Comment not found." });
+        }
+
+        if (project.OwnerId != currentUserId && comment.CreatedByUserId != currentUserId)
+        {
+            return Forbid();
+        }
+
+        await _mongoDbContext.TaskComments.DeleteOneAsync(
+            existingComment => existingComment.Id == comment.Id && existingComment.TaskId == task.Id,
+            cancellationToken);
+
         return NoContent();
     }
 
@@ -500,6 +667,25 @@ public class TasksController : ControllerBase
 
         return await _mongoDbContext.Users
             .Find(user => user.Id == userId)
+            .FirstOrDefaultAsync(cancellationToken);
+    }
+
+    private async Task<TaskComment?> FindCommentById(
+        string projectId,
+        string taskId,
+        string commentId,
+        CancellationToken cancellationToken)
+    {
+        if (!ObjectId.TryParse(commentId, out _))
+        {
+            return null;
+        }
+
+        return await _mongoDbContext.TaskComments
+            .Find(comment =>
+                comment.Id == commentId &&
+                comment.ProjectId == projectId &&
+                comment.TaskId == taskId)
             .FirstOrDefaultAsync(cancellationToken);
     }
 
@@ -614,9 +800,10 @@ public class TasksController : ControllerBase
         var usersById = await LoadUsersForTasks(tasks, cancellationToken);
         var epicsById = await LoadEpicsForTasks(tasks, cancellationToken);
         var sprintsById = await LoadSprintsForEpics(epicsById.Values.ToList(), cancellationToken);
+        var commentCounts = await LoadCommentCountsForTasks(tasks, cancellationToken);
 
         return tasks
-            .Select(task => MapTaskToResponse(task, usersById, epicsById, sprintsById))
+            .Select(task => MapTaskToResponse(task, usersById, epicsById, sprintsById, commentCounts))
             .ToList();
     }
 
@@ -627,15 +814,17 @@ public class TasksController : ControllerBase
         var usersById = await LoadUsersForTasks(new List<ProjectTask> { task }, cancellationToken);
         var epicsById = await LoadEpicsForTasks(new List<ProjectTask> { task }, cancellationToken);
         var sprintsById = await LoadSprintsForEpics(epicsById.Values.ToList(), cancellationToken);
+        var commentCounts = await LoadCommentCountsForTasks(new List<ProjectTask> { task }, cancellationToken);
 
-        return MapTaskToResponse(task, usersById, epicsById, sprintsById);
+        return MapTaskToResponse(task, usersById, epicsById, sprintsById, commentCounts);
     }
 
     private static TaskResponseDto MapTaskToResponse(
         ProjectTask task,
         IReadOnlyDictionary<string, User> usersById,
         IReadOnlyDictionary<string, ProjectEpic> epicsById,
-        IReadOnlyDictionary<string, ProjectSprint> sprintsById)
+        IReadOnlyDictionary<string, ProjectSprint> sprintsById,
+        IReadOnlyDictionary<string, int> commentCounts)
     {
         usersById.TryGetValue(task.CreatedByUserId, out var createdByUser);
         ProjectEpic? epic = null;
@@ -668,8 +857,40 @@ public class TasksController : ControllerBase
             StartDate = task.StartDate,
             DueDate = task.DueDate,
             CreatedAt = task.CreatedAt,
-            UpdatedAt = task.UpdatedAt
+            UpdatedAt = task.UpdatedAt,
+            CommentCount = commentCounts.TryGetValue(task.Id, out var commentCount) ? commentCount : 0
         };
+    }
+
+    private async Task<IReadOnlyDictionary<string, int>> LoadCommentCountsForTasks(
+        List<ProjectTask> tasks,
+        CancellationToken cancellationToken)
+    {
+        var taskIds = tasks
+            .Select(task => task.Id)
+            .Where(taskId => !string.IsNullOrWhiteSpace(taskId))
+            .Distinct()
+            .ToList();
+
+        if (taskIds.Count == 0)
+        {
+            return new Dictionary<string, int>();
+        }
+
+        var filter = Builders<TaskComment>.Filter.In(comment => comment.TaskId, taskIds);
+        var counts = await _mongoDbContext.TaskComments
+            .Aggregate()
+            .Match(filter)
+            .Group(
+                comment => comment.TaskId,
+                group => new
+                {
+                    TaskId = group.Key,
+                    Count = group.Count()
+                })
+            .ToListAsync(cancellationToken);
+
+        return counts.ToDictionary(item => item.TaskId, item => item.Count);
     }
 
     private async Task<IReadOnlyDictionary<string, User>> LoadUsersForTasks(
@@ -736,6 +957,61 @@ public class TasksController : ControllerBase
             .ToListAsync(cancellationToken);
 
         return sprints.ToDictionary(sprint => sprint.Id);
+    }
+
+    private async Task<List<TaskCommentResponseDto>> MapCommentsToResponses(
+        List<TaskComment> comments,
+        CancellationToken cancellationToken)
+    {
+        var usersById = await LoadUsersForComments(comments, cancellationToken);
+        return comments.Select(comment => MapCommentToResponse(comment, usersById)).ToList();
+    }
+
+    private async Task<TaskCommentResponseDto> MapCommentToResponse(
+        TaskComment comment,
+        CancellationToken cancellationToken)
+    {
+        var usersById = await LoadUsersForComments(new List<TaskComment> { comment }, cancellationToken);
+        return MapCommentToResponse(comment, usersById);
+    }
+
+    private static TaskCommentResponseDto MapCommentToResponse(
+        TaskComment comment,
+        IReadOnlyDictionary<string, User> usersById)
+    {
+        usersById.TryGetValue(comment.CreatedByUserId, out var createdByUser);
+
+        return new TaskCommentResponseDto
+        {
+            Id = comment.Id,
+            ProjectId = comment.ProjectId,
+            TaskId = comment.TaskId,
+            CreatedByUser = MapRequiredUser(comment.CreatedByUserId, createdByUser),
+            Body = comment.Body,
+            CreatedAt = comment.CreatedAt
+        };
+    }
+
+    private async Task<IReadOnlyDictionary<string, User>> LoadUsersForComments(
+        List<TaskComment> comments,
+        CancellationToken cancellationToken)
+    {
+        var userIds = comments
+            .Select(comment => comment.CreatedByUserId)
+            .Where(userId => !string.IsNullOrWhiteSpace(userId))
+            .Distinct()
+            .ToList();
+
+        if (userIds.Count == 0)
+        {
+            return new Dictionary<string, User>();
+        }
+
+        var users = await _mongoDbContext.Users
+            .Find(user => userIds.Contains(user.Id))
+            .ToListAsync(cancellationToken);
+
+        return users.ToDictionary(user => user.Id);
     }
 
     private static TaskAssigneeDto? MapOptionalUser(

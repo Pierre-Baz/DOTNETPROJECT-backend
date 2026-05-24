@@ -207,6 +207,10 @@ public class ProjectsController : ControllerBase
             sprint => sprint.ProjectId == project.Id,
             cancellationToken);
 
+        await _mongoDbContext.TaskComments.DeleteManyAsync(
+            comment => comment.ProjectId == project.Id,
+            cancellationToken);
+
         return NoContent();
     }
 
