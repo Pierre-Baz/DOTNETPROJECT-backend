@@ -191,11 +191,6 @@ public class WikiController : ControllerBase
             return NotFound(new { message = "Wiki page not found." });
         }
 
-        if (project.OwnerId != currentUserId && page.CreatedByUserId != currentUserId)
-        {
-            return Forbid();
-        }
-
         await _mongoDbContext.WikiPages.DeleteOneAsync(
             existingPage => existingPage.Id == page.Id && existingPage.ProjectId == project.Id,
             cancellationToken);

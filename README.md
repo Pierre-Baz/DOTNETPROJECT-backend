@@ -23,13 +23,13 @@ ASP.NET Core Web API backend for NetManage.
 - MongoDB-backed project/workspace storage
 - Project ownership for the user who creates the project
 - Project membership by registered user email
-- Owner-only project updates, deletion, and member management
+- Project-member project updates, deletion, and member management
 - Member-only project viewing
 
 ## Phase 4 Features
 
 - MongoDB-backed project task storage
-- Owner-only task creation, full updates, assignment, and deletion
+- Project-member task creation, full updates, assignment, and deletion
 - Member task viewing inside projects
 - Member task status updates for the Kanban board
 
@@ -74,18 +74,18 @@ dotnet run
 
 ## Project/Workspace API
 
-Projects are the workspace area where tasks live. The user who creates a project becomes the owner. The owner is also stored as a member. Project members can view the project, while only the owner can update or delete the project and add or remove members.
+Projects are the workspace area where tasks live. The user who creates a project becomes the owner. The owner is also stored as a member. Project members can view, update, or delete the project and add or remove members.
 
 Project endpoints:
 
 - `GET /api/projects` - list projects where the current user is a member
 - `POST /api/projects` - create a project as the current user
 - `GET /api/projects/{id}` - view one project as a member
-- `PUT /api/projects/{id}` - update a project as the owner
-- `DELETE /api/projects/{id}` - delete a project as the owner
+- `PUT /api/projects/{id}` - update a project as a project member
+- `DELETE /api/projects/{id}` - delete a project as a project member
 - `GET /api/projects/{id}/members` - list project members as a member
-- `POST /api/projects/{id}/members` - add a registered user by email as the owner
-- `DELETE /api/projects/{id}/members/{userId}` - remove a member as the owner
+- `POST /api/projects/{id}/members` - add a registered user by email as a project member
+- `DELETE /api/projects/{id}/members/{userId}` - remove a member as a project member
 
 Short local testing flow:
 
@@ -101,7 +101,7 @@ Short local testing flow:
 
 ## Task API
 
-Tasks belong to projects and power the Kanban board. Project members can view tasks and update task status. Project owners can create tasks, update full task details, assign tasks to project members, and delete tasks.
+Tasks belong to projects and power the Kanban board. Project members can create tasks, update full task details, assign tasks to project members, move tasks across statuses, and delete tasks.
 
 Task statuses:
 
@@ -121,11 +121,11 @@ Task priorities:
 Task endpoints:
 
 - `GET /api/projects/{projectId}/tasks` - list project tasks as a project member
-- `POST /api/projects/{projectId}/tasks` - create a task as the project owner
+- `POST /api/projects/{projectId}/tasks` - create a task as a project member
 - `GET /api/projects/{projectId}/tasks/{taskId}` - view one project task as a project member
-- `PUT /api/projects/{projectId}/tasks/{taskId}` - update full task details as the project owner
+- `PUT /api/projects/{projectId}/tasks/{taskId}` - update full task details as a project member
 - `PATCH /api/projects/{projectId}/tasks/{taskId}/status` - update only task status as a project member
-- `DELETE /api/projects/{projectId}/tasks/{taskId}` - delete a task as the project owner
+- `DELETE /api/projects/{projectId}/tasks/{taskId}` - delete a task as a project member
 
 The `PATCH /api/projects/{projectId}/tasks/{taskId}/status` endpoint is used by the Kanban drag-and-drop board.
 

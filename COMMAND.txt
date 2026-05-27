@@ -106,9 +106,9 @@ Phase 3 project/workspace test flow:
    `GET /api/projects`
    `GET /api/projects/{projectId}`
 
-10. Confirm user B cannot update or delete the project:
-    `PUT /api/projects/{projectId}` should return 403 Forbidden.
-    `DELETE /api/projects/{projectId}` should return 403 Forbidden.
+10. Confirm user B can update or delete the project:
+    `PUT /api/projects/{projectId}` should succeed.
+    `DELETE /api/projects/{projectId}` should succeed.
 
 11. Confirm owner can remove user B:
     Re-authorize Swagger with user A's token.
@@ -206,10 +206,10 @@ Phase 4 task management test flow:
       "status": "Started"
     }
 
-13. Confirm user B cannot update full task details:
-    `PUT /api/projects/{projectId}/tasks/{taskId}` should return 403 Forbidden.
+13. Confirm user B can update full task details:
+    `PUT /api/projects/{projectId}/tasks/{taskId}` should succeed.
 
-14. Confirm owner user A can update and delete the task:
+14. Confirm project members can update and delete the task:
     Re-authorize Swagger with user A's token.
     Call `PUT /api/projects/{projectId}/tasks/{taskId}`.
     Call `DELETE /api/projects/{projectId}/tasks/{taskId}`.

@@ -144,7 +144,7 @@ public class ProjectsController : ControllerBase
             return NotFound(new { message = "Project not found." });
         }
 
-        if (!EnsureProjectOwner(project, currentUserId))
+        if (!EnsureProjectMember(project, currentUserId))
         {
             return Forbid();
         }
@@ -182,7 +182,7 @@ public class ProjectsController : ControllerBase
             return NotFound(new { message = "Project not found." });
         }
 
-        if (!EnsureProjectOwner(project, currentUserId))
+        if (!EnsureProjectMember(project, currentUserId))
         {
             return Forbid();
         }
@@ -246,7 +246,7 @@ public class ProjectsController : ControllerBase
             return NotFound(new { message = "Project not found." });
         }
 
-        if (!EnsureProjectOwner(project, currentUserId))
+        if (!EnsureProjectMember(project, currentUserId))
         {
             return Forbid();
         }
@@ -306,14 +306,9 @@ public class ProjectsController : ControllerBase
             return NotFound(new { message = "Project not found." });
         }
 
-        if (!EnsureProjectOwner(project, currentUserId))
+        if (!EnsureProjectMember(project, currentUserId))
         {
             return Forbid();
-        }
-
-        if (project.OwnerId == userId)
-        {
-            return BadRequest(new { message = "Project owner cannot be removed from the project." });
         }
 
         var user = await FindUserById(userId, cancellationToken);
@@ -403,11 +398,6 @@ public class ProjectsController : ControllerBase
     private static bool EnsureProjectMember(Project project, string userId)
     {
         return project.MemberIds.Contains(userId);
-    }
-
-    private static bool EnsureProjectOwner(Project project, string userId)
-    {
-        return project.OwnerId == userId;
     }
 
     private async Task<List<ProjectResponseDto>> MapProjectsToResponses(

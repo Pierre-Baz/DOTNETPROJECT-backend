@@ -63,7 +63,7 @@ public class SprintsController : ControllerBase
         CreateSprintRequestDto request,
         CancellationToken cancellationToken)
     {
-        var projectResult = await LoadProjectForOwner(projectId, cancellationToken);
+        var projectResult = await LoadProjectForMember(projectId, cancellationToken);
         if (projectResult.Result is not null)
         {
             return projectResult.Result;
@@ -136,7 +136,7 @@ public class SprintsController : ControllerBase
         UpdateSprintRequestDto request,
         CancellationToken cancellationToken)
     {
-        var projectResult = await LoadProjectForOwner(projectId, cancellationToken);
+        var projectResult = await LoadProjectForMember(projectId, cancellationToken);
         if (projectResult.Result is not null)
         {
             return projectResult.Result;
@@ -184,7 +184,7 @@ public class SprintsController : ControllerBase
         string sprintId,
         CancellationToken cancellationToken)
     {
-        var projectResult = await LoadProjectForOwner(projectId, cancellationToken);
+        var projectResult = await LoadProjectForMember(projectId, cancellationToken);
         if (projectResult.Result is not null)
         {
             return projectResult.Result;
@@ -229,30 +229,6 @@ public class SprintsController : ControllerBase
         }
 
         if (!project.MemberIds.Contains(currentUserId))
-        {
-            return Forbid();
-        }
-
-        return project;
-    }
-
-    private async Task<ActionResult<Project>> LoadProjectForOwner(
-        string projectId,
-        CancellationToken cancellationToken)
-    {
-        var currentUserId = GetCurrentUserId();
-        if (string.IsNullOrWhiteSpace(currentUserId))
-        {
-            return Unauthorized(new { message = "Authentication token is invalid." });
-        }
-
-        var project = await FindProjectById(projectId, cancellationToken);
-        if (project is null)
-        {
-            return NotFound(new { message = "Project not found." });
-        }
-
-        if (project.OwnerId != currentUserId)
         {
             return Forbid();
         }

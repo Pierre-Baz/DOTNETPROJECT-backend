@@ -196,7 +196,7 @@ public class TasksController : ControllerBase
             return NotFound(new { message = "Project not found." });
         }
 
-        if (!EnsureProjectOwner(project, currentUserId))
+        if (!EnsureProjectMember(project, currentUserId))
         {
             return Forbid();
         }
@@ -304,7 +304,7 @@ public class TasksController : ControllerBase
             return NotFound(new { message = "Project not found." });
         }
 
-        if (!EnsureProjectOwner(project, currentUserId))
+        if (!EnsureProjectMember(project, currentUserId))
         {
             return Forbid();
         }
@@ -388,11 +388,6 @@ public class TasksController : ControllerBase
             return NotFound(new { message = "Task not found." });
         }
 
-        if (!CanUpdateTaskStatus(project, task, currentUserId))
-        {
-            return Forbid();
-        }
-
         if (!TryNormalizeStatus(request.Status, out var normalizedStatus))
         {
             ModelState.AddModelError(nameof(request.Status), "Status must be one of: Todo, Started, Testing, Finishing, Done.");
@@ -438,7 +433,7 @@ public class TasksController : ControllerBase
             return NotFound(new { message = "Project not found." });
         }
 
-        if (!EnsureProjectOwner(project, currentUserId))
+        if (!EnsureProjectMember(project, currentUserId))
         {
             return Forbid();
         }
@@ -612,11 +607,6 @@ public class TasksController : ControllerBase
             return NotFound(new { message = "Comment not found." });
         }
 
-        if (project.OwnerId != currentUserId && comment.CreatedByUserId != currentUserId)
-        {
-            return Forbid();
-        }
-
         await _mongoDbContext.TaskComments.DeleteOneAsync(
             existingComment => existingComment.Id == comment.Id && existingComment.TaskId == task.Id,
             cancellationToken);
@@ -692,16 +682,6 @@ public class TasksController : ControllerBase
     private static bool EnsureProjectMember(Project project, string userId)
     {
         return project.MemberIds.Contains(userId);
-    }
-
-    private static bool EnsureProjectOwner(Project project, string userId)
-    {
-        return project.OwnerId == userId;
-    }
-
-    private static bool CanUpdateTaskStatus(Project project, ProjectTask task, string userId)
-    {
-        return project.OwnerId == userId || task.AssignedToUserId == userId;
     }
 
     private bool ValidateTaskDetails(
